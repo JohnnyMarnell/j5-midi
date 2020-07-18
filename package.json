@@ -1,0 +1,23 @@
+{
+  "name": "j5-midi",
+  "version": "1.0.0",
+  "description": "Easy, convenient library for interfacing with midi devices.",
+  "main": "src",
+  "scripts": {
+    "test": "echo \"Error: no tests yet...\" && exit 1"
+  },
+  "keywords": [
+    "midi",
+    "events",
+    "easy",
+    "node-midi",
+    "RtMidi",
+    "rt",
+    "rtm"
+  ],
+  "author": "Johnny Marnell <johnnymarnell@gmail.com> (https://www.linkedin.com/in/johnnymarnell)",
+  "license": "ISC",
+  "dependencies": {
+    "midi": "^1.0.0"
+  }
+}
