@@ -1,13 +1,15 @@
-const Midi = require('./Midi')
-const events = require('events')
+const Midi = require("./Midi")
+const events = require("events")
 
 class MidiIn {
     constructor(opts) {
         this.opts = opts
         this.events = new events.EventEmitter()
         this.rtmIn = Midi.newRtmDevice(opts.pattern, false, opts)
+        this.name = this.rtmIn.name
         this.initRtmIn()
     }
+
     // todo: think about this more (esp performance?)
     fireEvents(msg, dt, rtmData, input) {
         let type = Midi.type(msg)
@@ -17,17 +19,48 @@ class MidiIn {
             `midi.${type}.*`,
             `midi.${type}.*.${msg.data}`,
             `midi.${type}.${msg.channel}`,
-            `midi.${type}.${msg.channel}.${msg.data}`,
-        ).forEach(event => {
+            `midi.${type}.${msg.channel}.${msg.data}`
+        ).forEach((event) => {
             this.events.emit(event, msg, dt, rtmData, input)
         })
-        this.events.emit('rtm', dt, rtmData, input, msg)
+        this.events.emit("rtm", dt, rtmData, input, msg)
     }
+
     on(events, handler) {
-        events.split(/,\s*/ig).forEach(event => {
+        events.split(/,\s*/gi).forEach((event) => {
             this.events.on(event, handler)
         })
     }
+
+    simulate(msg, delay) {
+        delay = delay || 0
+        setTimeout(() => {
+            this.intitializeMidiEvent(msg)
+            this.fireEvents(msg, "todo", Midi.toRtmArray(msg), this)
+        }, delay)
+    }
+
+    initRtmIn() {
+        this.rtmIn.on("message", (dt, data) => {
+            let msg = Midi.translateFromRtMessage(dt, data)
+            msg = Midi.cleanMessage(msg)
+            this.initializeMidiEvent(msg)
+            if (this.opts.verbose) {
+                console.log(Midi.messageText(msg), data)
+            }
+            this.fireEvents(msg, dt, data, this)
+        })
+    }
+
+    initializeMidiEvent(msg) {
+        Midi.intitializeMidiEvent(
+            msg,
+            this.startTime,
+            this.totalTime,
+            this.name
+        )
+    }
+
     timestampMessage(msg) {
         let hrtime = process.hrtime()
         let now = Midi.now()
@@ -38,12 +71,12 @@ class MidiIn {
             this.startHrTimeNanos = hrtime[1]
         }
         let msgTime
-        if (this.opts.wallClockAlways || dt == 0 && this.opts.wallClock) {
+        if (this.opts.wallClockAlways || (dt == 0 && this.opts.wallClock)) {
             msgTime = now
             this.driftTime = now - msgTime
         } else {
             this.totalTime += dt
-            msgTime = Math.round(this.startTime + (this.totalTime * 1000))
+            msgTime = Math.round(this.startTime + this.totalTime * 1000)
             this.driftTime = now - msgTime
             this.lastDt = dt
         }
@@ -51,30 +84,10 @@ class MidiIn {
             time: msgTime,
             totalTime: this.totalTime,
             driftTime: this.driftTime,
-            input: this.name
+            input: this.name,
         })
     }
-    initRtmIn() {
-        this.rtmIn.on('message', (dt, data) => {
-            let msg = Midi.translateFromRtMessage(dt, data)
-            msg = Midi.cleanMessage(msg)
-            this.initializeMidiEvent(msg)
-            if (this.opts.verbose) {
-                console.log(Midi.messageText(msg), data)
-            }
-            this.fireEvents(msg, dt, data, this)
-        })
-    }
-    simulate(msg, delay) {
-        delay = delay || 0
-        setTimeout(() => {
-            this.intitializeMidiEvent(msg)
-            this.fireEvents(msg, 'todo', 'todo', this)
-        }, delay)
-    }
-    initializeMidiEvent(msg) {
-        Midi.intitializeMidiEvent(msg, this.startTime, this.totalTime, this.name)
-    }
+
     close() {
         this.rtmIn.closePort()
     }
