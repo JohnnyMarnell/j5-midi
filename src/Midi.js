@@ -11,94 +11,39 @@ NOTES_SHARPS.forEach(
 )
 
 class Midi {
-    static newRtmDevice(name, out, opts) {
-        const type = out ? "Out" : "In"
-        const pattern =
-            name.constructor == RegExp ? name : new RegExp(name, "ig")
-        let rtmDevice
-        if (!!process.argv.find((a) => a == "--debug-midi")) {
-            rtmDevice = new RtMidiDeviceProxy(out, opts)
-        } else {
-            rtmDevice = out ? new midi.Output() : new midi.Input()
-        }
-        if (!out && opts.virtual) {
-            rtmDevice.openVirtualPort(name)
-            rtmDevice.name = name
-            console.log(`Opened Virtual Midi ${type} port: ${rtmDevice.name}`)
-        } else {
-            const numPorts = rtmDevice.getPortCount()
-            const portNames = []
-            for (let i = 0; i < numPorts; i++) {
-                portNames.push(rtmDevice.getPortName(i))
-            }
-            const portIndex = portNames.findIndex((n) => n.match(pattern))
-            if (portIndex <= 0) {
-                console.error(
-                    `Could not find Midi (${type}) for: "${name}" of ${portNames}`
-                )
-                rtmDevice.closePort()
-                return null
-            }
-            rtmDevice.name = portNames[portIndex]
-            rtmDevice.openPort(portIndex)
-            console.log(`Opened Midi ${type} port: ${rtmDevice.name}`)
-        }
 
-        return rtmDevice
+    static ccDown(msg, data) {
+        return msg.type == Midi.Types.CC && msg.data == data && msg.value > 63
+    }
+
+    static ccKnob(msg, data, channel) {
+        return (
+            msg.type == Midi.Types.CC &&
+            (Midi.isEmpty(data) || msg.data == data) &&
+            (Midi.isEmpty(channel) || msg.channel == channel)
+        )
+    }
+
+    static note(noteNum, channel, off, velocity) {
+        return {
+            type: !!off ? Midi.Types.NOTE_OFF : Midi.Types.NOTE_ON,
+            data: noteNum,
+            value: !!off ? 0 : velocity || 127,
+            channel: channel || 0,
+        }
+    }
+
+    static cc(data, channel, value) {
+        return {
+            type: Midi.Types.CC,
+            data: data,
+            channel: channel || 0,
+            value: value,
+        }
     }
 
     static isEmpty(val) {
         return !val && val !== 0 && val !== false
-    }
-
-    static cleanMessage(msg) {
-        if (!msg.channel) {
-            msg.channel = 0
-        }
-        msg.channel = parseInt(msg.channel) || 0
-        if (!msg.type) {
-            if (!Midi.isEmpty(msg.cc)) {
-                msg.type = Midi.Types.CC
-                msg.data = msg.cc
-            } else if (!Midi.isEmpty(msg.program)) {
-                msg.type = Midi.Types.PROGRAM
-                msg.data = msg.program
-            } else if (!Midi.isEmpty(msg.note)) {
-                msg.data = msg.note
-                msg.type = !msg.value ? Midi.Types.NOTE_OFF : Midi.Types.NOTE_ON
-            } else {
-                throw new Error("Cant convert midi " + JSON.stringify(msg))
-            }
-        }
-        // handle if 0 velocity should be note off
-        if (msg.type == Midi.Types.NOTE_ON && msg.value == 0) {
-            msg.type = Midi.Types.NOTE_OFF
-            msg.status = msg.type + msg.channel
-        }
-        if (!msg.status) {
-            msg.status = msg.type + msg.channel
-        }
-        Midi.setChannel(msg, msg.channel)
-        return msg
-    }
-
-    static messageSize(msg) {
-        let size = -1
-        if (msg.type <= Midi.Types.PITCH_BEND) {
-            if (Midi.isProgram(msg) || Midi.isChannelAfterTouch(msg)) {
-                size = 2
-            } else {
-                size = 3
-            }
-        } else {
-            // todo jmarnell, figure out what this was doing and make clear
-            if (msg.status == 242) {
-                size = 3
-            } else {
-                size = 1
-            }
-        }
-        return size
     }
 
     static translateFromRtMessage(dt, data) {
@@ -235,36 +180,6 @@ class Midi {
         return target
     }
 
-    static ccDown(msg, data) {
-        return msg.type == Midi.Types.CC && msg.data == data && msg.value > 63
-    }
-
-    static ccKnob(msg, data, channel) {
-        return (
-            msg.type == Midi.Types.CC &&
-            (Midi.isEmpty(data) || msg.data == data) &&
-            (Midi.isEmpty(channel) || msg.channel == channel)
-        )
-    }
-
-    static note(noteNum, channel, off, velocity) {
-        return {
-            type: !!off ? Midi.Types.NOTE_OFF : Midi.Types.NOTE_ON,
-            data: noteNum,
-            value: !!off ? 0 : velocity || 127,
-            channel: channel || 0,
-        }
-    }
-
-    static cc(data, channel, value) {
-        return {
-            type: Midi.Types.CC,
-            data: data,
-            channel: channel || 0,
-            value: value,
-        }
-    }
-
     static program(program, channel) {
         return {
             type: Midi.Types.PROGRAM,
@@ -376,22 +291,112 @@ class Midi {
         let size = Midi.messageSize(msg)
         return [msg.status, msg.data, msg.value].slice(0, size)
     }
+
+    static newRtmDevice(name, out, opts) {
+        const type = out ? "Out" : "In"
+        let rtmDevice
+        if (!!process.argv.find((a) => a == "--debug-midi")) {
+            rtmDevice = new RtMidiDeviceProxy(out, opts)
+        } else {
+            rtmDevice = out ? new midi.Output() : new midi.Input()
+        }
+        if (opts.virtual) {
+            rtmDevice.openVirtualPort(name)
+            rtmDevice.name = name
+            console.log(`Opened Virtual Midi ${type} port: ${rtmDevice.name}`)
+        } else {
+            this.findAndOpenPort(rtmDevice, type, name)
+        }
+
+        return rtmDevice
+    }
+
+    static findAndOpenPort(rtmDevice, type, name) {
+        const pattern =
+            name.constructor == RegExp ? name : new RegExp(name, "ig")
+        const numPorts = rtmDevice.getPortCount()
+        const portNames = []
+        for (let i = 0; i < numPorts; i++) {
+            portNames.push(rtmDevice.getPortName(i))
+        }
+        const portIndex = portNames.findIndex((n) => n.match(pattern))
+        if (portIndex <= 0) {
+            console.error(
+                `Could not find Midi (${type}) for: "${name}" of ${portNames}`
+            )
+            rtmDevice.closePort()
+            return null
+        }
+        rtmDevice.name = portNames[portIndex]
+        rtmDevice.openPort(portIndex)
+        console.log(`Opened Midi ${type} port: ${rtmDevice.name}`)
+    }
+
+    static cleanMessage(msg) {
+        if (!msg.channel) {
+            msg.channel = 0
+        }
+        msg.channel = parseInt(msg.channel) || 0
+        if (!msg.type) {
+            if (!Midi.isEmpty(msg.cc)) {
+                msg.type = Midi.Types.CC
+                msg.data = msg.cc
+            } else if (!Midi.isEmpty(msg.program)) {
+                msg.type = Midi.Types.PROGRAM
+                msg.data = msg.program
+            } else if (!Midi.isEmpty(msg.note)) {
+                msg.data = msg.note
+                msg.type = !msg.value ? Midi.Types.NOTE_OFF : Midi.Types.NOTE_ON
+            } else {
+                throw new Error("Cant convert midi " + JSON.stringify(msg))
+            }
+        }
+        // handle if 0 velocity should be note off
+        if (msg.type == Midi.Types.NOTE_ON && msg.value == 0) {
+            msg.type = Midi.Types.NOTE_OFF
+            msg.status = msg.type + msg.channel
+        }
+        if (!msg.status) {
+            msg.status = msg.type + msg.channel
+        }
+        Midi.setChannel(msg, msg.channel)
+        return msg
+    }
+
+    static messageSize(msg) {
+        let size = -1
+        if (msg.type <= Midi.Types.PITCH_BEND) {
+            if (Midi.isProgram(msg) || Midi.isChannelAfterTouch(msg)) {
+                size = 2
+            } else {
+                size = 3
+            }
+        } else {
+            // todo jmarnell, figure out what this was doing and make clear
+            if (msg.status == 242) {
+                size = 3
+            } else {
+                size = 1
+            }
+        }
+        return size
+    }
 }
 
 Midi.bootTime = Midi.now()
 Midi.globalTotalTime = 0
 
 Midi.Types = Object.freeze({
-    NOTE_ON: parseInt("10010000", 2),
-    NOTE_OFF: parseInt("10000000", 2),
-    CC: parseInt("10110000", 2),
-    PROGRAM: parseInt("11000000", 2),
-    KEY_AFTER: parseInt("10100000", 2),
-    CHANNEL_AFTER: parseInt("11010000", 2),
-    PITCH_BEND: parseInt("11100000", 2),
+    NOTE_ON: 0b10010000,
+    NOTE_OFF: 0b10000000,
+    CC: 0b10110000,
+    PROGRAM: 0b11000000,
+    KEY_AFTER: 0b10100000,
+    CHANNEL_AFTER: 0b11010000,
+    PITCH_BEND: 0b11100000,
 
-    TYPE_MASK: parseInt("11110000", 2),
-    CHANNEL_MASK: parseInt("00001111", 2),
+    TYPE_MASK: 0b11110000,
+    CHANNEL_MASK: 0b00001111,
 
     NOTES: NOTES,
     NOTES_SHARPS: NOTES_SHARPS,
