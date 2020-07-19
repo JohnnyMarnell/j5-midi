@@ -118,6 +118,10 @@ class Midi {
         return msg.type == Midi.Types.CHANNEL_AFTER
     }
 
+    static isSysEx(rtmData) {
+        return rtmData[0] == Midi.Types.SYSEX_START && rtmData[rtmData.length - 1] == Midi.Types.SYSEX_END
+    }
+
     // match a noteOn or a cc press (high)
     static on(target, msg) {
         return (
@@ -307,6 +311,9 @@ class Midi {
         } else {
             this.findAndOpenPort(rtmDevice, type, name)
         }
+        if (!out) {
+            rtmDevice.ignoreTypes(false, false, false)
+        }
 
         return rtmDevice
     }
@@ -329,7 +336,7 @@ class Midi {
         }
         rtmDevice.name = portNames[portIndex]
         rtmDevice.openPort(portIndex)
-        console.log(`Opened Midi ${type} port: ${rtmDevice.name}`)
+        console.log(`Opened Midi ${type} port: ${rtmDevice.name}        (All: ${portNames})`)
     }
 
     static cleanMessage(msg) {
@@ -394,6 +401,8 @@ Midi.Types = Object.freeze({
     KEY_AFTER: 0b10100000,
     CHANNEL_AFTER: 0b11010000,
     PITCH_BEND: 0b11100000,
+    SYSEX_START: 0xF0,
+    SYSEX_END: 0xF7,
 
     TYPE_MASK: 0b11110000,
     CHANNEL_MASK: 0b00001111,

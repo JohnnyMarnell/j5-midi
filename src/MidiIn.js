@@ -16,18 +16,16 @@ class MidiIn {
         Array(
             `midi`,
             `midi.${type}`,
-            `midi.${type}.*`,
             `midi.${type}.*.${msg.data}`,
             `midi.${type}.${msg.channel}`,
             `midi.${type}.${msg.channel}.${msg.data}`
         ).forEach((event) => {
             this.events.emit(event, msg, dt, rtmData, input)
         })
-        this.events.emit("rtm", dt, rtmData, input, msg)
     }
 
     on(events, handler) {
-        events.split(/,\s*/gi).forEach((event) => {
+        events.split(/,\s*|\s+/gi).forEach((event) => {
             this.events.on(event, handler)
         })
     }
@@ -42,13 +40,18 @@ class MidiIn {
 
     initRtmIn() {
         this.rtmIn.on("message", (dt, data) => {
-            let msg = Midi.translateFromRtMessage(dt, data)
-            msg = Midi.cleanMessage(msg)
-            this.initializeMidiEvent(msg)
-            if (this.opts.verbose) {
-                console.log(Midi.messageText(msg), data)
+            if (Midi.isSysEx(data)) {
+                this.events.emit("sysex", data, dt, this)
+            } else {
+                let msg = Midi.translateFromRtMessage(dt, data)
+                msg = Midi.cleanMessage(msg)
+                this.initializeMidiEvent(msg)
+                if (this.opts.verbose) {
+                    console.log(Midi.messageText(msg), data)
+                }
+                this.fireEvents(msg, dt, data, this)
             }
-            this.fireEvents(msg, dt, data, this)
+            this.events.emit("rtm", data, dt, this)
         })
     }
 
