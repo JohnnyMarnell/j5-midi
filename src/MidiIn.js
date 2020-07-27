@@ -35,7 +35,6 @@ class MidiIn {
         const rtmData = [msg.status, msg.data, msg.value] // todo cover more cases
         msg.simulated = true
         if (delay) {
-            console.log('wtf using delay', delay)
             setTimeout(() => this.handleMessage(msg, NaN, rtmData), delay)
         } else {
             this.handleMessage(msg, NaN, rtmData)
