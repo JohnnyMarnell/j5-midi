@@ -53,7 +53,7 @@ class Midi {
             channel: data[0] & Midi.Types.CHANNEL_MASK,
             data: data[1],
             value: data[2],
-            dt: dt,
+            dt: dt
         }
         return msg
     }
@@ -76,7 +76,6 @@ class Midi {
             Midi.Types.LETTERS_TO_NOTES[letter] ||
             Midi.Types.LETTERS_TO_NOTES_SHARPS[letter]
         noteNumber += octave * 12
-        console.log("note translaishe:", noteNumber, letter, octave, str)
         return noteNumber
     }
 
@@ -84,8 +83,12 @@ class Midi {
         return [msg.type, msg.channel, msg.data].join("|")
     }
 
-    static now() {
+    static nowMs() {
         return new Date().getTime()
+    }
+
+    static now() {
+        return Midi.nanos(process.hrtime(Midi.bootTime))
     }
 
     static isNote(msg) {
@@ -241,27 +244,6 @@ class Midi {
         ).join(" ")
     }
 
-    static intitializeMidiEvent(msg, startTime, totalTime, name) {
-        msg.time = Midi.now()
-        msg.totalTime = (msg.time - startTime) / 1000
-        msg.dt = msg.totalTime - totalTime
-        msg.input = name
-        msg.originalChannel = msg.channel
-        msg.originalData = msg.data
-        let hrtime = process.hrtime()
-        msg.id = hrtime[0] + "." + hrtime[1]
-    }
-
-    static globalInitializeMidiEvent(msg) {
-        Midi.intitializeMidiEvent(
-            msg,
-            Midi.bootTime,
-            Midi.globalTotalTime,
-            "global-simulated-timing"
-        )
-        Midi.globalTotalTime = msg.totalTime
-    }
-
     static cloneMessage(msg, value) {
         msg = JSON.parse(JSON.stringify(msg)) // todo un-dumb this
         if (!Midi.isEmpty(value)) {
@@ -388,9 +370,19 @@ class Midi {
         }
         return size
     }
+
+    static nanos(hrtimeDelta) {
+        return hrtimeDelta[0] * 1e9 + hrtimeDelta[1]
+    }
+
+    // todo: uhhhhhhhhh, make this better
+    static clone(object) {
+        return JSON.parse(JSON.stringify(object))
+    }
 }
 
-Midi.bootTime = Midi.now()
+Midi.bootTimeMs = Midi.nowMs()
+Midi.bootTime = process.hrtime()
 Midi.globalTotalTime = 0
 
 Midi.Types = Object.freeze({
