@@ -13,7 +13,7 @@ NOTES_SHARPS.forEach(
 class Midi {
 
     static ccDown(msg, data) {
-        return msg.type == Midi.Types.CC && msg.data == data && msg.value > 63
+        return msg.type === Midi.Types.CC && msg.data === data && msg.value > 63
     }
 
     static ccKnob(msg, data, channel) {
@@ -125,6 +125,14 @@ class Midi {
         return rtmData[0] == Midi.Types.SYSEX_START && rtmData[rtmData.length - 1] == Midi.Types.SYSEX_END
     }
 
+    static isOn(msg, likeness) {
+        return (!likeness || (
+            (Midi.isEmpty(likeness.data) || likeness.data === msg.data)
+            && (Midi.isEmpty(likeness.channel) || likeness.channel === msg.channel)
+        )) && (Midi.isNote(msg) && Midi.isNoteOn(msg) || Midi.isCC(msg) && msg.value >= 64)
+    }
+
+    // todo: remove most of these
     // match a noteOn or a cc press (high)
     static on(target, msg) {
         return (
