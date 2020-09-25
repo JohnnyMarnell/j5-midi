@@ -7,18 +7,27 @@ class MidiIn {
         this.events = new events.EventEmitter()
         this.rtmIn = Midi.newRtmDevice(opts.pattern, false, opts)
         this.name = this.rtmIn.name
+        this.momentaryToggles = {}
         this.initRtmIn()
     }
 
     // todo: think about this more (esp performance?)
     fireEvents(msg, dt, rtmData, input) {
         let type = Midi.type(msg)
+        let key = `midi.${type}.${msg.channel}.${msg.data}`
+        if (this.opts.momentaryToggle && Midi.isCC(msg) && this.opts.momentaryToggle.indexOf(msg.data) >= 0) {
+            if (!msg.value) {
+                return
+            }
+            this.momentaryToggles[key] = !this.momentaryToggles[key]
+            msg.value = this.momentaryToggles[key] ? 127 : 0
+        }
         Array(
             `midi`,
             `midi.${type}`,
             `midi.${type}.*.${msg.data}`,
             `midi.${type}.${msg.channel}`,
-            `midi.${type}.${msg.channel}.${msg.data}`
+            key
         ).forEach((event) => {
             this.events.emit(event, msg, dt, rtmData, input)
         })
