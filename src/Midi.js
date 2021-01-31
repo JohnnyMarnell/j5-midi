@@ -204,12 +204,12 @@ class Midi {
         let type = str[0],
             msg,
             [val1, val2, val3] = str.slice(1).map((s) => parseInt(s))
-        if (type == Midi.TypeNames.CC) {
+        if (type == Midi.TypeNames[Midi.Types.CC]) {
             msg = Midi.cc(val2, val1, val3)
-        } else if (type == Midi.TypeNames.PROGRAM) {
+        } else if (type == Midi.TypeNames[Midi.Types.PROGRAM]) {
             msg = Midi.program(val2, val1)
         } else {
-            const off = Midi.TypeNames.NOTE_OFF == type.toLowerCase()
+            const off = Midi.TypeNames[Midi.Types.NOTE_OFF] == type.toLowerCase()
             msg = Midi.note(val2, val1, off, val3)
         }
         return msg
@@ -233,7 +233,12 @@ class Midi {
 
     static setChannel(msg, channel) {
         msg.channel = channel
-        msg.status = msg.type + channel
+        msg.status = msg.type + msg.channel
+    }
+
+    static setType(msg, type) {
+        msg.type = type
+        msg.status = msg.type + msg.channel
     }
 
     static messageText(msg) {
@@ -308,8 +313,8 @@ class Midi {
         for (let i = 0; i < numPorts; i++) {
             portNames.push(rtmDevice.getPortName(i))
         }
-        const portIndex = portNames.findIndex((n) => n.match(pattern))
-        if (portIndex <= 0) {
+        const portIndex = portNames.findIndex(n => n.match(pattern))
+        if (portIndex < 0) {
             console.error(
                 `Could not find Midi (${type}) for: "${name}" of ${portNames}`
             )
