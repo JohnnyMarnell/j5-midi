@@ -283,7 +283,7 @@ class Midi {
         return [msg.status, msg.data, msg.value].slice(0, size)
     }
 
-    static newRtmDevice(name, out, opts) {
+    static newRtmDevice(name, out, opts = {}) {
         const type = out ? "Out" : "In"
         let rtmDevice
         if (!!process.argv.find((a) => a == "--debug-midi")) {
@@ -291,13 +291,7 @@ class Midi {
         } else {
             rtmDevice = out ? new midi.Output() : new midi.Input()
         }
-        if (opts.virtual) {
-            rtmDevice.openVirtualPort(name)
-            rtmDevice.name = name
-            console.log(`Opened Virtual Midi ${type} port: ${rtmDevice.name}`)
-        } else {
-            this.findAndOpenPort(rtmDevice, type, name)
-        }
+        this.findAndOpenPort(rtmDevice, type, name, opts)
         if (!out) {
             rtmDevice.ignoreTypes(false, false, false)
         }
@@ -305,7 +299,7 @@ class Midi {
         return rtmDevice
     }
 
-    static findAndOpenPort(rtmDevice, type, name) {
+    static findAndOpenPort(rtmDevice, type, name, opts = {}) {
         const pattern =
             name.constructor == RegExp ? name : new RegExp(name, "ig")
         const numPorts = rtmDevice.getPortCount()
@@ -313,16 +307,24 @@ class Midi {
         for (let i = 0; i < numPorts; i++) {
             portNames.push(rtmDevice.getPortName(i))
         }
-        const portIndex = portNames.findIndex(n => n.match(pattern))
+        let portIndex = portNames.findIndex(n => n.match(pattern))
         if (portIndex < 0) {
-            console.error(
-                `Could not find Midi (${type}) for: "${name}" of ${portNames}`
-            )
-            rtmDevice.closePort()
-            return null
+            if (opts.virtual) {
+                type = "VIRTUAL " + type
+                portIndex = portNames.length
+                portNames.push(name)
+                rtmDevice.openVirtualPort(name)
+            } else {
+                console.error(
+                    `Could not find Midi (${type}) for: "${name}" of ${portNames}`
+                )
+                rtmDevice.closePort()
+                return null
+            }
+        } else {
+            rtmDevice.openPort(portIndex)
         }
         rtmDevice.name = portNames[portIndex]
-        rtmDevice.openPort(portIndex)
         console.log(`Opened Midi ${type} port: ${rtmDevice.name}        (All: ${portNames})`)
     }
 

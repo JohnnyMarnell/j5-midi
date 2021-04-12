@@ -19,5 +19,14 @@
   "license": "ISC",
   "dependencies": {
     "midi": "^1.0.0"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JohnnyMarnell/j5-midi.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JohnnyMarnell/j5-midi/issues"
+  },
+  "homepage": "https://github.com/JohnnyMarnell/j5-midi#readme"
 }

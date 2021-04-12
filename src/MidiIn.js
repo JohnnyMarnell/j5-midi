@@ -15,20 +15,30 @@ class MidiIn {
     fireEvents(msg, dt, rtmData, input) {
         let type = Midi.type(msg)
         let key = `midi.${type}.${msg.channel}.${msg.data}`
-        if (this.opts.momentaryToggle && Midi.isCC(msg) && this.opts.momentaryToggle.indexOf(msg.data) >= 0) {
-            if (!msg.value) {
+        let cc = Midi.isCC(msg)
+        if (this.opts.momentaryToggle && cc && this.opts.momentaryToggle.indexOf(msg.data) >= 0) {
+            if (!msg.value || msg.value < 64) {
                 return
             }
             this.momentaryToggles[key] = !this.momentaryToggles[key]
             msg.value = this.momentaryToggles[key] ? 127 : 0
         }
-        Array(
+        const events = Array(
             `midi`,
             `midi.${type}`,
             `midi.${type}.*.${msg.data}`,
             `midi.${type}.${msg.channel}`,
             key
-        ).forEach((event) => {
+        )
+        if (cc) {
+            const ccEvent = msg.value >= 64 ? 'ccon' : 'ccoff'
+            events.push(
+                `midi.${ccEvent}`,
+                `midi.${ccEvent}.*.${msg.data}`,
+                `midi.${ccEvent}.${msg.channel}`,
+            )
+        }
+        events.forEach((event) => {
             this.events.emit(event, msg, dt, rtmData, input)
         })
     }

@@ -1,0 +1,113 @@
+<html>
+    <head>
+        <title>Novation LaunchKey Mini Emulator</title>
+    </head>
+    <style>
+        * { margin: 0; padding: 0; }
+        .pads {
+            display: grid;
+            grid-template-columns: repeat(9, 6% [col-start]);
+            grid-gap: 2px;
+            width: 100%;
+        }
+        .knobs { padding: 2px; margin: 0;}
+        .knob { width: 5.8%; padding: 0; }
+        .pad { height: 60px; border: solid 1px; }
+        .pad:active { background-color: red; }
+    </style>
+    <body>
+    <div>
+        <div class="knobs">
+            <input type="range" class="knob" step="1" min="0" max="127" data-channel="1" data-type="cc" data-num="21">
+            <input type="range" class="knob" step="1" min="0" max="127" data-channel="1" data-type="cc" data-num="22">
+            <input type="range" class="knob" step="1" min="0" max="127" data-channel="1" data-type="cc" data-num="23">
+            <input type="range" class="knob" step="1" min="0" max="127" data-channel="1" data-type="cc" data-num="24">
+            <input type="range" class="knob" step="1" min="0" max="127" data-channel="1" data-type="cc" data-num="25">
+            <input type="range" class="knob" step="1" min="0" max="127" data-channel="1" data-type="cc" data-num="26">
+            <input type="range" class="knob" step="1" min="0" max="127" data-channel="1" data-type="cc" data-num="27">
+            <input type="range" class="knob" step="1" min="0" max="127" data-channel="1" data-type="cc" data-num="28">
+        </div>
+        <div class="pads">
+            <div class="pad midi" data-num="40" data-channel="10">1</div>
+            <div class="pad midi" data-num="41" data-channel="10">2</div>
+            <div class="pad midi" data-num="42" data-channel="10">3</div>
+            <div class="pad midi" data-num="43" data-channel="10">4</div>
+            <div class="pad midi" data-num="48" data-channel="10">5</div>
+            <div class="pad midi" data-num="49" data-channel="10">6</div>
+            <div class="pad midi" data-num="50" data-channel="10">7</div>
+            <div class="pad midi" data-num="51" data-channel="10">8</div>
+            <div class="pad midi" data-num="104" data-channel="1" data-type="cc"> > </div>
+            <div class="pad midi" data-num="36" data-channel="10">9</div>
+            <div class="pad midi" data-num="37" data-channel="10">10</div>
+            <div class="pad midi" data-num="38" data-channel="10">11</div>
+            <div class="pad midi" data-num="39" data-channel="10">12</div>
+            <div class="pad midi" data-num="44" data-channel="10">13</div>
+            <div class="pad midi" data-num="45" data-channel="10">14</div>
+            <div class="pad midi" data-num="46" data-channel="10">15</div>
+            <div class="pad midi" data-num="47" data-channel="10">16</div>
+            <div class="pad midi" data-num="105" data-channel="1" data-type="cc"> Stop<br/>Solo<br/>Mute </div>
+        </div>
+        <span class="tmp-=right">
+            <button class="midi" data-type="cc" data-channel="1" data-num="115">tmp play</button>
+            <button class="midi" data-type="cc" data-channel="1" data-num="117">tmp rec</button>
+        </span>
+        <script>
+            let inputs = [], outputs = [], midi = null, daw = null, MidiAccess = null
+
+            document.querySelectorAll("button.midi, .pad.midi")
+                .forEach(el => el.addEventListener("mousedown", e => inputHandler(e.target, e, true)))
+            document.querySelectorAll("button.midi, .pad.midi")
+                .forEach(el => el.addEventListener("mouseup", e => inputHandler(e.target, e, false)))
+            document.querySelectorAll("input.knob")
+                .forEach(el => el.addEventListener("input", e => inputHandler(e.target, e)))
+            document.body.addEventListener("keydown", e => keyHandler(e, true))
+            document.body.addEventListener("keyup", e => keyHandler(e, false))
+
+            function inputHandler(el, event, on) {
+                console.log(on && 'on' || 'off', el, event)
+                const channel = parseInt(el.dataset.channel || 1) - 1
+                const num = parseInt(el.dataset.num || 60)
+                const type = el.dataset.type || "note"
+                midi.send([
+                    (type === "cc" ? 0xb0 : on ? 0x90 : 0x80) + channel,
+                    num,
+                    typeof on === "undefined" ? el.valueAsNumber : on ? 127 : 0
+                ])
+            }
+
+            function keyHandler(event, on) {
+                console.log('key', on, event.code, event)
+                if (event.code === 'KeyZ') {
+                    inputHandler(document.querySelector('[data-num="36"]'), {fake:1}, on)
+                } else if (event.code === 'KeyX') {
+                    inputHandler(document.querySelector('[data-num="38"]'), {fake:1}, on)
+                } else if (event.code === 'KeyC') {
+                    inputHandler(document.querySelector('[data-num="42"]'), {fake:1}, on)
+                } else if (event.code === 'KeyV') {
+                    inputHandler(document.querySelector('[data-num="46"]'), {fake:1}, on)
+                }
+            }
+
+            async function initMidi() {
+                inputs = Array.from(MidiAccess.inputs.values())
+                outputs = Array.from(MidiAccess.outputs.values())
+                const logMidiStatus = (event) => {
+                    console.log("Midi Event", event.port.name, event.port.manufacturer, event.port.state, event)
+                    inputs.forEach(port => console.log('Midi Input', port.name))
+                    outputs.forEach(port => console.log('Midi Output', port.name))
+                    midi = outputs.find(i => i.name.match(/LaunchKey .* MIDI/ig))
+                    daw = outputs.find(i => i.name.match(/LaunchKey .* DAW/ig))
+                }
+                MidiAccess.onstatechange = logMidiStatus
+                logMidiStatus({port: {name: "first-blood"}})
+            }
+
+            async function run() {
+                MidiAccess = await navigator.requestMIDIAccess()
+                await initMidi()
+            }
+            run()
+        </script>
+    </div>
+    </body>
+</html>
