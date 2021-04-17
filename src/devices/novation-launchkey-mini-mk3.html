@@ -1,19 +1,22 @@
 <html>
+    <!-- todo: if I ever add more devices, can abstract the common input / feedback logic -->
     <head>
         <title>Novation LaunchKey Mini Emulator</title>
     </head>
     <style>
         * { margin: 0; padding: 0; }
-        .pads {
-            display: grid;
-            grid-template-columns: repeat(9, 6% [col-start]);
-            grid-gap: 2px;
-            width: 100%;
-        }
+        .pads { display: grid; grid-template-columns: repeat(9, 6% [col-start]); grid-gap: 2px; width: 100%; }
         .knobs { padding: 2px; margin: 0;}
         .knob { width: 5.8%; padding: 0; }
         .pad { height: 60px; border: solid 1px; }
-        .pad:active { background-color: red; }
+        .key:active, .pad:active, .button:active { background-color: red; }
+        .button { height: 20px; width: 60px; border: solid 1px; }
+        .keys { position: relative; left: 8px; top: 6px; }
+        .black.anchor { float: left; display: block; height: 0; width: 0; }
+        .white { float: left; display: block; height: 96px; width: 32px; margin: -1px 0 0 -1px;
+            background-color: white; border: solid black 1px; position: static; }
+        .black { float: left; display: block; background-color: black; position: relative; height: 64px; width: 16px;
+            right: 4px; /* not sure why this needs to be 4 instead of 8 (== half of black) */ }
     </style>
     <body>
     <div>
@@ -28,35 +31,63 @@
             <input type="range" class="knob" step="1" min="0" max="127" data-channel="1" data-type="cc" data-num="28">
         </div>
         <div class="pads">
-            <div class="pad midi" data-num="40" data-channel="10">1</div>
-            <div class="pad midi" data-num="41" data-channel="10">2</div>
-            <div class="pad midi" data-num="42" data-channel="10">3</div>
-            <div class="pad midi" data-num="43" data-channel="10">4</div>
-            <div class="pad midi" data-num="48" data-channel="10">5</div>
-            <div class="pad midi" data-num="49" data-channel="10">6</div>
-            <div class="pad midi" data-num="50" data-channel="10">7</div>
-            <div class="pad midi" data-num="51" data-channel="10">8</div>
-            <div class="pad midi" data-num="104" data-channel="1" data-type="cc"> > </div>
-            <div class="pad midi" data-num="36" data-channel="10">9</div>
-            <div class="pad midi" data-num="37" data-channel="10">10</div>
-            <div class="pad midi" data-num="38" data-channel="10">11</div>
-            <div class="pad midi" data-num="39" data-channel="10">12</div>
-            <div class="pad midi" data-num="44" data-channel="10">13</div>
-            <div class="pad midi" data-num="45" data-channel="10">14</div>
-            <div class="pad midi" data-num="46" data-channel="10">15</div>
-            <div class="pad midi" data-num="47" data-channel="10">16</div>
-            <div class="pad midi" data-num="105" data-channel="1" data-type="cc"> Stop<br/>Solo<br/>Mute </div>
+            <div class="pad midi" data-num="40"  data-channel="10" data-type="note"> 1  </div>
+            <div class="pad midi" data-num="41"  data-channel="10" data-type="note"> 2  </div>
+            <div class="pad midi" data-num="42"  data-channel="10" data-type="note"> 3  </div>
+            <div class="pad midi" data-num="43"  data-channel="10" data-type="note"> 4  </div>
+            <div class="pad midi" data-num="48"  data-channel="10" data-type="note"> 5  </div>
+            <div class="pad midi" data-num="49"  data-channel="10" data-type="note"> 6  </div>
+            <div class="pad midi" data-num="50"  data-channel="10" data-type="note"> 7  </div>
+            <div class="pad midi" data-num="51"  data-channel="10" data-type="note"> 8  </div>
+            <div class="pad midi" data-num="104" data-channel="1"  data-type="cc">   >  </div>
+            <div class="pad midi" data-num="36"  data-channel="10" data-type="note"> 9  </div>
+            <div class="pad midi" data-num="37"  data-channel="10" data-type="note"> 10 </div>
+            <div class="pad midi" data-num="38"  data-channel="10" data-type="note"> 11 </div>
+            <div class="pad midi" data-num="39"  data-channel="10" data-type="note"> 12 </div>
+            <div class="pad midi" data-num="44"  data-channel="10" data-type="note"> 13 </div>
+            <div class="pad midi" data-num="45"  data-channel="10" data-type="note"> 14 </div>
+            <div class="pad midi" data-num="46"  data-channel="10" data-type="note"> 15 </div>
+            <div class="pad midi" data-num="47"  data-channel="10" data-type="note"> 16 </div>
+            <div class="pad midi" data-num="105" data-channel="1"  data-type="cc"> Stop<br/>Solo<br/>Mute </div>
         </div>
-        <span class="tmp-=right">
-            <button class="midi" data-type="cc" data-channel="1" data-num="115">tmp play</button>
-            <button class="midi" data-type="cc" data-channel="1" data-num="117">tmp rec</button>
-        </span>
-        <script>
-            let inputs = [], outputs = [], midi = null, daw = null, MidiAccess = null
+        <div class="tmp-right">
+            <div class="midi button" data-type="cc" data-channel="1" data-num="115">tmp play</div>
+            <div class="midi button" data-type="cc" data-channel="1" data-num="117">tmp rec</div>
+        </div>
+        <div class="keys">
+            <div class="key midi note white" data-num="48" data-channel="1" data-type="note"></div>
+            <div class="black anchor"><div class="key midi note black" data-num="49" data-channel="1" data-type="note"></div></div>
+            <div class="key midi note white" data-num="50" data-channel="1" data-type="note"></div>
+            <div class="black anchor"><div class="key midi note black" data-num="51" data-channel="1" data-type="note"></div></div>
+            <div class="key midi note white" data-num="52" data-channel="1" data-type="note"></div>
+            <div class="key midi note white" data-num="53" data-channel="1" data-type="note"></div>
+            <div class="black anchor"><div class="key midi note black" data-num="54" data-channel="1" data-type="note"></div></div>
+            <div class="key midi note white" data-num="55" data-channel="1" data-type="note"></div>
+            <div class="black anchor"><div class="key midi note black" data-num="56" data-channel="1" data-type="note"></div></div>
+            <div class="key midi note white" data-num="57" data-channel="1" data-type="note"></div>
+            <div class="black anchor"><div class="key midi note black" data-num="58" data-channel="1" data-type="note"></div></div>
+            <div class="key midi note white" data-num="59" data-channel="1" data-type="note"></div>
 
-            document.querySelectorAll("button.midi, .pad.midi")
+            <div class="key midi note white" data-num="60" data-channel="1" data-type="note"></div>
+            <div class="black anchor"><div class="key midi note black" data-num="61" data-channel="1" data-type="note"></div></div>
+            <div class="key midi note white" data-num="62" data-channel="1" data-type="note"></div>
+            <div class="black anchor"><div class="key midi note black" data-num="63" data-channel="1" data-type="note"></div></div>
+            <div class="key midi note white" data-num="64" data-channel="1" data-type="note"></div>
+            <div class="key midi note white" data-num="65" data-channel="1" data-type="note"></div>
+            <div class="black anchor"><div class="key midi note black" data-num="66" data-channel="1" data-type="note"></div></div>
+            <div class="key midi note white" data-num="67" data-channel="1" data-type="note"></div>
+            <div class="black anchor"><div class="key midi note black" data-num="68" data-channel="1" data-type="note"></div></div>
+            <div class="key midi note white" data-num="69" data-channel="1" data-type="note"></div>
+            <div class="black anchor"><div class="key midi note black" data-num="70" data-channel="1" data-type="note"></div></div>
+            <div class="key midi note white" data-num="71" data-channel="1" data-type="note"></div>
+            <!-- <div class="key midi note white" data-num="72" data-channel="1" data-type="note"></div> -->
+        </div>
+        <script>
+            let midi = null, daw = null, midiIn = null, dawIn = null, MidiAccess = null
+
+            document.querySelectorAll(".midi")
                 .forEach(el => el.addEventListener("mousedown", e => inputHandler(e.target, e, true)))
-            document.querySelectorAll("button.midi, .pad.midi")
+            document.querySelectorAll(".midi")
                 .forEach(el => el.addEventListener("mouseup", e => inputHandler(e.target, e, false)))
             document.querySelectorAll("input.knob")
                 .forEach(el => el.addEventListener("input", e => inputHandler(e.target, e)))
@@ -64,7 +95,7 @@
             document.body.addEventListener("keyup", e => keyHandler(e, false))
 
             function inputHandler(el, event, on) {
-                console.log(on && 'on' || 'off', el, event)
+                // console.log(on && 'on' || 'off', el, event)
                 const channel = parseInt(el.dataset.channel || 1) - 1
                 const num = parseInt(el.dataset.num || 60)
                 const type = el.dataset.type || "note"
@@ -75,28 +106,65 @@
                 ])
             }
 
-            function keyHandler(event, on) {
-                console.log('key', on, event.code, event)
-                if (event.code === 'KeyZ') {
-                    inputHandler(document.querySelector('[data-num="36"]'), {fake:1}, on)
-                } else if (event.code === 'KeyX') {
-                    inputHandler(document.querySelector('[data-num="38"]'), {fake:1}, on)
-                } else if (event.code === 'KeyC') {
-                    inputHandler(document.querySelector('[data-num="42"]'), {fake:1}, on)
-                } else if (event.code === 'KeyV') {
-                    inputHandler(document.querySelector('[data-num="46"]'), {fake:1}, on)
+            function midiHandler(msg) {
+                const type = msg.data[0] & 0xf0
+                const typeName = type === 0x90 || type === 0x80 ? 'note' : type === 0xb0 ? 'cc' : 'ignored'
+                const channel = (msg.data[0] & 0x0f) + 1
+                const data = msg.data[1]
+                const val = msg.data[2]
+                const el = document.querySelector(`[data-type="${typeName}"][data-channel="${channel}"][data-num="${data}"]`)
+                // console.log('midi input!', typeName, "0x" + type.toString(16), channel, data, val, el, msg)
+                if (el) {
+                    if (typeName === 'note') {
+                        if ((type === 0x90 &&  val > 0)) {
+                            el.style.backgroundColor = '#' + Math.round(val / 127 * 0xffffff).toString(16)
+                        } else if (((type === 0x90 && val <= 0)) || (type === 0x80)) {
+                            el.style.backgroundColor = null
+                        }
+                    } else if (typeName === 'cc') {
+                        el.style.backgroundColor = val !== 0 ? '#' + Math.round(val / 127 * 0xffffff).toString(16) : null
+                    }
                 }
             }
 
+            const keyKeyCodes = ( // layout the top rows as a piano keys
+            `Tab  Digit1 KeyQ Digit2 KeyW KeyE Digit4 KeyR        Digit5 KeyT         Digit6    KeyY ` +
+            `KeyU Digit8 KeyI Digit9 KeyO KeyP Minus  BracketLeft Plus   BracketRight Backspace Backslash`
+                ).split(/\s+/ig)
+            const drumKeyCodes = { KeyZ: 36, KeyX: 38, KeyC: 42, KeyV: 46}
+            const ccKeyCodes = { KeyM: 117 }
+            function keyHandler(event, on) {
+                if (event.keyCode === 9) { event.preventDefault() }
+                if (!event.repeat && !event.getModifierState('Meta') && event.key !== 'Meta') {
+                    console.log('key', on, event.code, event)
+                    let key = keyKeyCodes.indexOf(event.code), drum, cc
+                    if (key >= 0) {
+                        inputHandler(document.querySelector(`[data-channel="1"][data-num="${48 + key}"]`), {fake:1}, on)
+                    } else if ((drum = drumKeyCodes[event.code])) {
+                        inputHandler(document.querySelector(`[data-channel="10"][data-num="${drum}"]`), {fake:1}, on)
+                    } else if ((cc = ccKeyCodes[event.code])) {
+                        inputHandler(document.querySelector(`[data-type="cc"][data-num="${cc}"]`), {fake:1}, on)
+                    }
+                    event.preventDefault()
+                }
+                return true
+            }
+
             async function initMidi() {
-                inputs = Array.from(MidiAccess.inputs.values())
-                outputs = Array.from(MidiAccess.outputs.values())
                 const logMidiStatus = (event) => {
-                    console.log("Midi Event", event.port.name, event.port.manufacturer, event.port.state, event)
-                    inputs.forEach(port => console.log('Midi Input', port.name))
-                    outputs.forEach(port => console.log('Midi Output', port.name))
+                    // console.log("Midi Event", event.port.name, event.port.manufacturer, event.port.state, event)
+                    const inputs = Array.from(MidiAccess.inputs.values())
+                    const outputs = Array.from(MidiAccess.outputs.values())
+                    // inputs.forEach(port => console.log('Midi Input', port.name))
+                    // outputs.forEach(port => console.log('Midi Output', port.name))
                     midi = outputs.find(i => i.name.match(/LaunchKey .* MIDI/ig))
                     daw = outputs.find(i => i.name.match(/LaunchKey .* DAW/ig))
+                    midiIn = inputs.find(i => i.name.match(/LaunchKey .* MIDI/ig))
+                    dawIn = inputs.find(i => i.name.match(/LaunchKey .* DAW/ig))
+                    dawIn.onmidimessage = midiHandler
+                    if (midiIn) {
+                        midiIn.onmidimessage = midiHandler
+                    }
                 }
                 MidiAccess.onstatechange = logMidiStatus
                 logMidiStatus({port: {name: "first-blood"}})
