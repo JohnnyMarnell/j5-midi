@@ -8,6 +8,7 @@ class MidiIn {
         this.rtmIn = Midi.newRtmDevice(opts.pattern, false, opts)
         this.name = this.rtmIn.name
         this.momentaryToggles = {}
+        this.exclusiveEvents = {}
         this.initRtmIn()
     }
 
@@ -16,6 +17,7 @@ class MidiIn {
         let type = Midi.type(msg)
         let key = `midi.${type}.${msg.channel}.${msg.data}`
         let cc = Midi.isCC(msg)
+        let note = Midi.isNote(msg)
         if (this.opts.momentaryToggle && cc && this.opts.momentaryToggle.indexOf(msg.data) >= 0) {
             if (!msg.value || msg.value < 64) {
                 return
@@ -28,7 +30,8 @@ class MidiIn {
             `midi.${type}`,
             `midi.${type}.*.${msg.data}`,
             `midi.${type}.${msg.channel}`,
-            key
+            `midi.${type}.${msg.channel}.${msg.data}`,
+            key,
         )
         if (cc) {
             const ccEvent = msg.value >= 64 ? 'ccon' : 'ccoff'
@@ -36,15 +39,27 @@ class MidiIn {
                 `midi.${ccEvent}`,
                 `midi.${ccEvent}.*.${msg.data}`,
                 `midi.${ccEvent}.${msg.channel}`,
+                `midi.${ccEvent}.${msg.channel}.${msg.data}`,
             )
         }
-        events.forEach((event) => {
-            this.events.emit(event, msg, dt, rtmData, input)
-        })
+        else if (!note) {
+            events.push(`midi.other`)
+        }
+        let exclusive = events.find(event => this.exclusiveEvents[event])
+        if (exclusive) {
+            this.events.emit(exclusive, msg, dt, rtmData, input)
+        } else {
+            events.forEach((event) => {
+                this.events.emit(event, msg, dt, rtmData, input)
+            })
+        }
     }
 
-    on(events, handler) {
+    on(events, handler, exclusive) {
         events.split(/,\s*|\s+/gi).forEach((event) => {
+            if (exclusive) {
+                this.exclusiveEvents[event] = true
+            }
             this.events.on(event, handler)
         })
         return this

@@ -40,6 +40,10 @@ class MidiOut {
         this.sendMessage(Midi.note(note, channel, true, 0))
     }
 
+    sendNote(channel, note, velocity) {
+        return velocity === 0 ? this.sendNoteOff(channel, note) : this.sendNoteOn(channel, note, velocity)
+    }
+
     sendCC(channel, cc, val) {
         if (typeof val == "undefined") {
             val = 127

@@ -13,7 +13,7 @@ NOTES_SHARPS.forEach(
 class Midi {
 
     static ccDown(msg, data) {
-        return msg.type == Midi.Types.CC && msg.data == data && msg.value > 63
+        return msg.type == Midi.Types.CC && msg.data == data && msg.value >= 64
     }
 
     static ccKnob(msg, data, channel) {
@@ -109,6 +109,10 @@ class Midi {
         )
     }
 
+    static isOn(msg) {
+        return Midi.isNoteOn(msg) || Midi.ccDown(msg, msg.data)
+    }
+
     static isCC(msg) {
         return msg.type == Midi.Types.CC
     }
@@ -129,7 +133,7 @@ class Midi {
     static on(target, msg) {
         return (
             ((Midi.isNote(target) && Midi.isNoteOn(msg)) ||
-                (Midi.isCC(target) && msg.value > 64)) &&
+                (Midi.isCC(target) && msg.value >= 64)) &&
             (Midi.isEmpty(target.data) || target.data == msg.data) &&
             (Midi.isEmpty(target.channel) || target.channel == msg.channel)
         )
@@ -224,6 +228,7 @@ class Midi {
             Midi.isNote(msg) ? "note" : Midi.type(msg),
             msg.channel,
             msg.data,
+            msg.value
         ].join(" ")
     }
 
@@ -234,11 +239,18 @@ class Midi {
     static setChannel(msg, channel) {
         msg.channel = channel
         msg.status = msg.type + msg.channel
+        return msg
+    }
+
+    static transpose(msg, amt) {
+        msg.data += amt
+        return msg
     }
 
     static setType(msg, type) {
         msg.type = type
         msg.status = msg.type + msg.channel
+        return msg
     }
 
     static messageText(msg) {
@@ -286,6 +298,14 @@ class Midi {
     static newRtmDevice(name, out, opts = {}) {
         const type = out ? "Out" : "In"
         let rtmDevice
+        if (typeof name === 'string' && opts.virtual) {
+            rtmDevice = out && Midi.virtualOutputs[name] ? Midi.virtualOutputs[name].rtmDevice :
+                !out && Midi.virtualInputs[name] ? Midi.virtualInputs[name].rtmDevice : null
+            if (rtmDevice) {
+                console.log(`Found and reusing VIRTUAL ${type} ${name}`)
+                return rtmDevice
+            }
+        }
         if (!!process.argv.find((a) => a == "--debug-midi")) {
             rtmDevice = new RtMidiDeviceProxy(out, opts)
         } else {
@@ -301,19 +321,20 @@ class Midi {
 
     static findAndOpenPort(rtmDevice, type, name, opts = {}) {
         const pattern =
-            name.constructor == RegExp ? name : new RegExp(name, "ig")
+            name.constructor === RegExp ? name : new RegExp(name, "ig")
         const numPorts = rtmDevice.getPortCount()
         const portNames = []
         for (let i = 0; i < numPorts; i++) {
             portNames.push(rtmDevice.getPortName(i))
         }
         let portIndex = portNames.findIndex(n => n.match(pattern))
-        if (portIndex < 0) {
+        if (portIndex < 0 || opts.forceNewVirtual) {
             if (opts.virtual) {
-                type = "VIRTUAL " + type
                 portIndex = portNames.length
                 portNames.push(name)
                 rtmDevice.openVirtualPort(name)
+                Midi[`virtual${type}puts`][name] = { rtmDevice: rtmDevice }
+                type = "VIRTUAL " + type
             } else {
                 console.error(
                     `Could not find Midi (${type}) for: "${name}" of ${portNames}`
@@ -387,6 +408,9 @@ class Midi {
         return JSON.parse(JSON.stringify(object))
     }
 }
+
+Midi.virtualInputs = {}
+Midi.virtualOutputs = {}
 
 Midi.bootTimeMs = Midi.nowMs()
 Midi.bootTime = process.hrtime()
