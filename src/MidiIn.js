@@ -1,5 +1,7 @@
-const Midi = require("./Midi")
-const events = require("events")
+const Midi = require('./Midi')
+const events = require('events')
+const fs = require('fs')
+const zlib = require('zlib')
 
 class MidiIn {
     constructor(opts) {
@@ -30,7 +32,6 @@ class MidiIn {
             `midi.${type}`,
             `midi.${type}.*.${msg.data}`,
             `midi.${type}.${msg.channel}`,
-            `midi.${type}.${msg.channel}.${msg.data}`,
             key,
         )
         if (cc) {
@@ -49,7 +50,7 @@ class MidiIn {
         if (exclusive) {
             this.events.emit(exclusive, msg, dt, rtmData, input)
         } else {
-            events.forEach((event) => {
+            events.forEach(event => {
                 this.events.emit(event, msg, dt, rtmData, input)
             })
         }
@@ -77,9 +78,18 @@ class MidiIn {
 
     initRtmIn() {
         this.rtmIn.on("message", (dt, data) => {
-            if (Midi.isSysEx(data)) {
-                this.events.emit("sysex", data, dt, this)
+            if (this.opts.emitRtmData) {
                 this.events.emit("rtm", data, dt, this)
+            }
+
+            if (Midi.isSysEx(data)) {
+                if (this.opts.emitSysEx) {
+                    this.events.emit("sysex", data, dt, this)
+                }
+            } else if (Midi.isMidiBeatClock(data)) {
+                if (this.opts.emitMidiBeatClock) {
+                    this.events.emit("midiBeatClock", data, dt, this)
+                }
             } else {
                 let msg = Midi.translateFromRtMessage(dt, data)
                 this.handleMessage(msg, dt, data)
@@ -96,6 +106,9 @@ class MidiIn {
         if (this.opts.verbose) {
             console.log(Midi.messageText(msg), data)
         }
+        if (MidiIn.rec && !msg.simulated) {
+            MidiIn.recEvents.push(Midi.cloneMessage(msg))
+        }
         this.fireEvents(msg, dt, data, this)
         this.events.emit("rtm", data, dt, this)
     }
@@ -104,4 +117,50 @@ class MidiIn {
         this.rtmIn.closePort()
     }
 }
+
+function handleRecord() {
+    MidiIn.rec = !! process.argv.find(a => a.startsWith('--j5-rec'))
+    if (MidiIn.rec) {
+        const path = `${process.env.HOME}/.config/j5/midi`
+        fs.mkdirSync(path, {recursive: true})
+        MidiIn.recEvents = []
+        MidiIn.recBoot = {type: 'boot', time: Midi.now(), bootTimeMs: Midi.bootTimeMs}
+        MidiIn.recEvents.push(MidiIn.recBoot)
+        const gzip = false
+        MidiIn.recPath = `${path}/recordings.json${gzip ? '.gz' : ''}`
+        console.error(`Recording midi events to ${MidiIn.recPath}`)
+        const writeStream = fs.createWriteStream(MidiIn.recPath, {autoClose: true, flags: 'a'})
+        const eventStream = gzip ? zlib.createGzip().pipe(writeStream) : writeStream
+
+        const flush = (end = false) => {
+            if (MidiIn.recEvents.length) {
+                eventStream.write(MidiIn.recEvents.map(e => JSON.stringify(e)).join('\n') + '\n')
+                if (eventStream.flush) {
+                    eventStream.flush()
+                }
+                if (end) {
+                    eventStream.end()
+                }
+                MidiIn.recEvents = []
+            }
+        }
+        setInterval(flush, 3000)
+
+        let shuttingDown = false
+        const shutdownHook = () => {
+            if (!shuttingDown) {
+                shuttingDown = true
+                console.error(`Flushing ${MidiIn.recEvents.length} recorded events before exit`)
+                MidiIn.recEvents.push({type: "shutdown", time: Midi.now()})
+                flush(true)
+            }
+        }
+        process.on('exit', shutdownHook)
+        process.on('SIGTERM', () => shutdownHook() || process.exit(0))
+        process.on('SIGINT', () => shutdownHook() || process.exit(0))
+        process.on('message', msg => msg === 'shutdown' && shutdownHook())
+    }
+}
+
+handleRecord()
 module.exports = MidiIn

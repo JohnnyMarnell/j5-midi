@@ -45,7 +45,7 @@ class MidiOut {
     }
 
     sendCC(channel, cc, val) {
-        if (typeof val == "undefined") {
+        if (typeof val === "undefined") {
             val = 127
         }
         this.sendMessage(Midi.cc(cc, channel, val))

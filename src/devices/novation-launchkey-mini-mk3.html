@@ -4,6 +4,7 @@
         <title>Novation LaunchKey Mini Emulator</title>
     </head>
     <style>
+        body {font-family: "Lucida Grande", "Geneva", "Helvetica", Arial, sans-serif}
         * { margin: 0; padding: 0; }
         .pads { display: grid; grid-template-columns: repeat(9, 6% [col-start]); grid-gap: 2px; width: 100%; }
         .tmp-right { display: grid; grid-template-columns: repeat(9, 6% [col-start]); grid-gap: 2px; width: 100%; }
@@ -52,10 +53,13 @@
             <div class="pad midi" data-num="105" data-channel="1"  data-type="cc"> Stop<br/>Solo<br/>Mute </div>
         </div>
         <div class="tmp-right">
-            <div class="midi button" data-type="cc" data-channel="1" data-num="115">play</div>
-            <div class="midi button" data-type="cc" data-channel="1" data-num="117">rec</div>
             <div class="button octaveDown">oct -</div>
             <div class="button octaveUp">oct +</div>
+            <div class="midi button" data-type="cc" data-channel="1" data-num="115">play</div>
+            <div class="midi button" data-type="cc" data-channel="1" data-num="117">rec</div>
+
+            <div class="button shiftTrackLeft" data-type="cc" data-channel="1" data-num="103">S <</div>
+            <div class="button shiftTrackRight" data-type="cc" data-channel="1" data-num="102">S ></div>
         </div>
         <div class="keys">
             <div class="key midi note white" data-valOffset="true" data-num="48" data-channel="1" data-type="note"></div>
@@ -87,7 +91,7 @@
         </div>
         <br><br><br><br><br><br><br>
         <p>Drums: Z kick, X snare, C hat close, V open // Keys: top 2 rows of keyboard</p>
-        <p>cc buttons: 'N'-'.', shift: 'K'-'"' </p>
+        <p>cc buttons: 'N'-'.', shift: 'J'-';' </p>
     </div>
         <script>
             let midi = null, daw = null, midiIn = null, dawIn = null, MidiAccess = null, valueOffset = 0
@@ -147,7 +151,7 @@
             `KeyU Digit8 KeyI Digit9 KeyO KeyP Minus  BracketLeft Equal    BracketRight Backspace Backslash`
                 ).split(/\s+/ig)
             const drumKeyCodes = { KeyZ: 36, KeyX: 38, KeyC: 42, KeyV: 46}
-            const ccKeyCodes = { KeyN: 104, KeyM: 105, Comma: 115, Period: 117, KeyJ: 106, KeyK: 107, KeyL: 103, Semicolon: 102}
+            const ccKeyCodes = { KeyN: 104, KeyM: 105, Comma: 115, Period: 117, KeyJ: 103, KeyK: 102, KeyL: 106, Semicolon: 107}
             function keyHandler(event, on) {
                 if (event.keyCode === 9) { event.preventDefault() }
                 if (!event.repeat && !event.getModifierState('Meta') && event.key !== 'Meta') {

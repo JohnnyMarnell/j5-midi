@@ -33,6 +33,14 @@ class Midi {
         }
     }
 
+    static noteOff(msg) {
+        return Midi.note(msg.data, msg.channel, true, msg.value)
+    }
+
+    static noteOn(msg) {
+        return Midi.note(msg.data, msg.channel, false, msg.value)
+    }
+
     static cc(data, channel, value) {
         return {
             type: Midi.Types.CC,
@@ -47,7 +55,7 @@ class Midi {
     }
 
     static translateFromRtMessage(dt, data) {
-        let msg = {
+        return {
             status: data[0],
             type: data[0] & Midi.Types.TYPE_MASK,
             channel: data[0] & Midi.Types.CHANNEL_MASK,
@@ -55,7 +63,6 @@ class Midi {
             value: data[2],
             dt: dt
         }
-        return msg
     }
 
     static relativizeNote(msg) {
@@ -84,7 +91,7 @@ class Midi {
     }
 
     static nowMs() {
-        return new Date().getTime()
+        return Date.now()
     }
 
     static now() {
@@ -92,20 +99,20 @@ class Midi {
     }
 
     static isNote(msg) {
-        return msg.type == Midi.Types.NOTE_ON || msg.type == Midi.Types.NOTE_OFF
+        return msg.type === Midi.Types.NOTE_ON || msg.type === Midi.Types.NOTE_OFF
     }
 
     static isNoteOn(msg, note) {
         return (
-            msg.type == Midi.Types.NOTE_ON &&
-            (Midi.isEmpty(note) || msg.data == note)
+            msg.type === Midi.Types.NOTE_ON &&
+            (Midi.isEmpty(note) || msg.data === note)
         )
     }
 
     static isNoteOff(msg, note) {
         return (
-            msg.type == Midi.Types.NOTE_OFF &&
-            (Midi.isEmpty(note) || msg.data == note)
+            msg.type === Midi.Types.NOTE_OFF &&
+            (Midi.isEmpty(note) || msg.data === note)
         )
     }
 
@@ -114,19 +121,24 @@ class Midi {
     }
 
     static isCC(msg) {
-        return msg.type == Midi.Types.CC
+        return msg.type === Midi.Types.CC
     }
 
     static isProgram(msg) {
-        return msg.type == Midi.Types.PROGRAM
+        return msg.type === Midi.Types.PROGRAM
     }
 
     static isChannelAfterTouch(msg) {
-        return msg.type == Midi.Types.CHANNEL_AFTER
+        return msg.type === Midi.Types.CHANNEL_AFTER
+    }
+
+    static isMidiBeatClock(rtmData) {
+        const status = rtmData[0] //           clocl       start,   continue,   stop
+        return rtmData.length === 1 && status === 0xF8 || status >= 0xFA && status <= 0xFC
     }
 
     static isSysEx(rtmData) {
-        return rtmData[0] == Midi.Types.SYSEX_START && rtmData[rtmData.length - 1] == Midi.Types.SYSEX_END
+        return rtmData[0] === Midi.Types.SYSEX_START && rtmData[rtmData.length - 1] === Midi.Types.SYSEX_END
     }
 
     // match a noteOn or a cc press (high)
@@ -134,8 +146,8 @@ class Midi {
         return (
             ((Midi.isNote(target) && Midi.isNoteOn(msg)) ||
                 (Midi.isCC(target) && msg.value >= 64)) &&
-            (Midi.isEmpty(target.data) || target.data == msg.data) &&
-            (Midi.isEmpty(target.channel) || target.channel == msg.channel)
+            (Midi.isEmpty(target.data) || target.data === msg.data) &&
+            (Midi.isEmpty(target.channel) || target.channel === msg.channel)
         )
     }
 
@@ -144,8 +156,8 @@ class Midi {
         return (
             ((Midi.isNote(target) && Midi.isNoteOff(msg)) ||
                 (Midi.isCC(target) && msg.value < 64)) &&
-            (Midi.isEmpty(target.data) || target.data == msg.data) &&
-            (Midi.isEmpty(target.channel) || target.channel == msg.channel)
+            (Midi.isEmpty(target.data) || target.data === msg.data) &&
+            (Midi.isEmpty(target.channel) || target.channel === msg.channel)
         )
     }
 
@@ -225,11 +237,16 @@ class Midi {
 
     static short(msg) {
         return [
-            Midi.isNote(msg) ? "note" : Midi.type(msg),
+            Midi.isNoteOn(msg) ? "noteon" : Midi.isNoteOff(msg) ? "noteoff" : Midi.type(msg),
             msg.channel,
             msg.data,
             msg.value
         ].join(" ")
+    }
+
+    static log(msg) {
+        console.log(Midi.short(msg))
+        return msg
     }
 
     static fluidCommand(msg) {
@@ -327,7 +344,9 @@ class Midi {
         for (let i = 0; i < numPorts; i++) {
             portNames.push(rtmDevice.getPortName(i))
         }
-        let portIndex = portNames.findIndex(n => n.match(pattern))
+        const filter = n => (!opts.exclude && n.match(pattern)) || (opts.exclude && !n.match(pattern))
+        let portIndex = portNames.findIndex(n => filter(n))
+        if (portIndex >= 0 && opts.second) portIndex = portNames.findIndex((n, i) => i > portIndex && filter(n))
         if (portIndex < 0 || opts.forceNewVirtual) {
             if (opts.virtual) {
                 portIndex = portNames.length
@@ -369,7 +388,7 @@ class Midi {
             }
         }
         // handle if 0 velocity should be note off
-        if (msg.type == Midi.Types.NOTE_ON && msg.value == 0) {
+        if (msg.type === Midi.Types.NOTE_ON && msg.value === 0) {
             msg.type = Midi.Types.NOTE_OFF
             msg.status = msg.type + msg.channel
         }
