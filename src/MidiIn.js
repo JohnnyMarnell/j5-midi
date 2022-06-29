@@ -34,18 +34,20 @@ class MidiIn {
             `midi.${type}.${msg.channel}`,
             key,
         )
-        if (cc) {
-            const ccEvent = msg.value >= 64 ? 'ccon' : 'ccoff'
+        const extra = cc ? (msg.value >= 64 ? 'ccon' : 'ccoff') :
+            note ? 'note' : null
+        if (extra) {
             events.push(
-                `midi.${ccEvent}`,
-                `midi.${ccEvent}.*.${msg.data}`,
-                `midi.${ccEvent}.${msg.channel}`,
-                `midi.${ccEvent}.${msg.channel}.${msg.data}`,
+                `midi.${extra}`,
+                `midi.${extra}.*.${msg.data}`,
+                `midi.${extra}.${msg.channel}`,
+                `midi.${extra}.${msg.channel}.${msg.data}`,
             )
         }
         else if (!note) {
             events.push(`midi.other`)
         }
+
         let exclusive = events.find(event => this.exclusiveEvents[event])
         if (exclusive) {
             this.events.emit(exclusive, msg, dt, rtmData, input)
@@ -63,6 +65,15 @@ class MidiIn {
             }
             this.events.on(event, handler)
         })
+        return this
+    }
+
+    onHend(events, handler, secs) {
+        let timer = null
+        const time = secs * 1000
+        const event = type = midi.replace(/(cc|note)/ig, `$1${type}`)
+        this.on(event('on'), msg => timer = setTimeout(() => callback(msg), time))
+        this.on(event('off'), msg => clearTimeout(timer))
         return this
     }
 
