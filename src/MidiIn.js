@@ -68,7 +68,7 @@ class MidiIn {
         return this
     }
 
-    onHend(events, handler, secs) {
+    onHeld(events, handler, secs) {
         let timer = null
         const time = secs * 1000
         const event = type = midi.replace(/(cc|note)/ig, `$1${type}`)
