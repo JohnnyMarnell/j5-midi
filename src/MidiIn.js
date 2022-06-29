@@ -68,12 +68,12 @@ class MidiIn {
         return this
     }
 
-    onHeld(events, handler, secs) {
+    onHeld(event, handler, secs) {
         let timer = null
         const time = secs * 1000
-        const event = type = midi.replace(/(cc|note)/ig, `$1${type}`)
-        this.on(event('on'), msg => timer = setTimeout(() => callback(msg), time))
-        this.on(event('off'), msg => clearTimeout(timer))
+        const type = type = event.replace(/(cc|note)/ig, `$1${type}`)
+        this.on(type('on'), msg => timer = setTimeout(() => handler(msg), time))
+        this.on(type('off'), msg => clearTimeout(timer))
         return this
     }
 
