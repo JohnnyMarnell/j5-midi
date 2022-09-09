@@ -11,6 +11,7 @@ class MidiIn {
         this.name = this.rtmIn.name
         this.momentaryToggles = {}
         this.exclusiveEvents = {}
+        this.require = null
         this.initRtmIn()
     }
 
@@ -59,6 +60,17 @@ class MidiIn {
     }
 
     on(events, handler, exclusive) {
+        if (this.require) {
+            const condition = this.require
+            const originalHandler = handler
+            handler = (...args) => {
+                // console.log('Checked condition for', events, 'result:', condition(...args))
+                if (condition(...args)) {
+                    originalHandler(...args)
+                }
+            }
+        }
+        // console.log('Is there a requirement for', events, '?', !!this.require)
         events.split(/,\s*|\s+/gi).forEach((event) => {
             if (exclusive) {
                 this.exclusiveEvents[event] = true
@@ -71,7 +83,8 @@ class MidiIn {
     onHeld(event, handler, secs) {
         let timer = null
         const time = secs * 1000
-        const type = t => event.replace(/(cc|note)/ig, `$1${t}`)
+        const type = t => event.replace(/(on|off)/ig, '')
+            .replace(/(cc|note)/ig, `$1${t}`)
         this.on(type('on'), msg => timer = setTimeout(() => handler(msg), time))
         this.on(type('off'), msg => clearTimeout(timer))
         return this
@@ -135,7 +148,7 @@ function handleRecord() {
         const path = `${process.env.HOME}/.config/j5/midi`
         fs.mkdirSync(path, {recursive: true})
         MidiIn.recEvents = []
-        MidiIn.recBoot = {type: 'boot', time: Midi.now(), bootTimeMs: Midi.bootTimeMs}
+        MidiIn.recBoot = {type: 'boot', nanos: Midi.now(), bootTimeMs: Midi.bootTimeMs, date: new Date(Midi.bootTimeMs)}
         MidiIn.recEvents.push(MidiIn.recBoot)
         const gzip = false
         MidiIn.recPath = `${path}/recordings.json${gzip ? '.gz' : ''}`
@@ -162,7 +175,7 @@ function handleRecord() {
             if (!shuttingDown) {
                 shuttingDown = true
                 console.error(`Flushing ${MidiIn.recEvents.length} recorded events before exit`)
-                MidiIn.recEvents.push({type: "shutdown", time: Midi.now()})
+                MidiIn.recEvents.push({type: "shutdown", nanos: Midi.now()})
                 flush(true)
             }
         }

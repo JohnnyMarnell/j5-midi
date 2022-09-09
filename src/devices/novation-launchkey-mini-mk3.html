@@ -58,8 +58,8 @@
             <div class="midi button" data-type="cc" data-channel="1" data-num="115">play</div>
             <div class="midi button" data-type="cc" data-channel="1" data-num="117">rec</div>
 
-            <div class="button shiftTrackLeft" data-type="cc" data-channel="1" data-num="103">S <</div>
-            <div class="button shiftTrackRight" data-type="cc" data-channel="1" data-num="102">S ></div>
+            <div class="midi button shiftTrackLeft" data-type="cc" data-channel="1" data-num="103">S <</div>
+            <div class="midi button shiftTrackRight" data-type="cc" data-channel="1" data-num="102">S ></div>
         </div>
         <div class="keys">
             <div class="key midi note white" data-valOffset="true" data-num="48" data-channel="1" data-type="note"></div>
@@ -92,6 +92,8 @@
         <br><br><br><br><br><br><br>
         <p>Drums: Z kick, X snare, C hat close, V open // Keys: top 2 rows of keyboard</p>
         <p>cc buttons: 'N'-'.', shift: 'J'-';' </p>
+        <p>Inputs: <span id="midiInputs"></span></p>
+        <p>Outputs: <span id="midiOutputs"></span></p>
     </div>
         <script>
             let midi = null, daw = null, midiIn = null, dawIn = null, MidiAccess = null, valueOffset = 0
@@ -136,7 +138,7 @@
                 if (el) {
                     if (typeName === 'note') {
                         if ((type === 0x90 &&  val > 0)) {
-                            el.style.backgroundColor = `#${Math.round(val / 127 * 0xff).toString(16)}0000`
+                            el.style.backgroundColor = `#${Math.round(val / 127 * 0xffffff).toString(16)}`
                         } else if (((type === 0x90 && val <= 0)) || (type === 0x80)) {
                             el.style.backgroundColor = null
                         }
@@ -180,6 +182,8 @@
                     daw = outputs.find(p => p.name.match(/LaunchKey .* DAW/ig))
                     midiIn = inputs.find(p => p.name.match(/LaunchKey .* MIDI/ig))
                     dawIn = inputs.find(p => p.name.match(/LaunchKey .* DAW/ig))
+                    document.getElementById('midiInputs').innerHTML = inputs.map(p => p.name).join(' // ')
+                    document.getElementById('midiOutputs').innerHTML = outputs.map(p => p.name).join(' // ')
 
                     // todo betterize and documentate
                     function param(name) {

@@ -32,6 +32,16 @@ class MidiOut {
         return this
     }
 
+    sendSysEx(str) {
+        // console.log('SysExSend', str)
+        this.rtmSend([
+            Midi.Types.SYSEX_START,
+            ...Array.from(str).map(c => c.charCodeAt(0)),
+            Midi.Types.SYSEX_END
+        ])
+        return this
+    }
+
     sendNoteOn(channel, note, velocity) {
         this.sendMessage(Midi.note(note, channel, false, velocity || 127))
     }

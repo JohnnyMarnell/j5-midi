@@ -9,8 +9,15 @@ NOTES.forEach((letter, index) => (LETTERS_TO_NOTES[letter] = index))
 NOTES_SHARPS.forEach(
     (letter, index) => (LETTERS_TO_NOTES_SHARPS[letter] = index)
 )
+const NANO_PER_SEC = 1e9
+const SEC_PER_NANO = 1.0 / NANO_PER_SEC
 
 class Midi {
+
+    static argv(name, defaultValue) {
+        const index = process.argv.indexOf(`--${name}`)
+        return typeof defaultValue === "undefined" ? index >= 0 : index < 0 ? defaultValue : process.argv[index + 1]
+    }
 
     static ccDown(msg, data) {
         return msg.type == Midi.Types.CC && msg.data == data && msg.value >= 64
@@ -98,6 +105,14 @@ class Midi {
         return Midi.nanos(process.hrtime(Midi.bootTime))
     }
 
+    static secs(nanos = null) {
+        return (nanos === null ? Midi.now() : nanos) * SEC_PER_NANO
+    }
+
+    static secsStr(nanos = null, points = 2) {
+        return Midi.secs(nanos).toFixed(points)
+    }
+
     static isNote(msg) {
         return msg.type === Midi.Types.NOTE_ON || msg.type === Midi.Types.NOTE_OFF
     }
@@ -107,6 +122,11 @@ class Midi {
             msg.type === Midi.Types.NOTE_ON &&
             (Midi.isEmpty(note) || msg.data === note)
         )
+    }
+
+    static isLikeSnareHit(msg) {
+        return Midi.isNoteOn(msg)
+            && (msg.data === Midi.Drum.SNARE || msg.data === Midi.Drum.CLICK || msg.data === Midi.Drum.CLAP)
     }
 
     static isNoteOff(msg, note) {
@@ -264,6 +284,13 @@ class Midi {
         return msg
     }
 
+    // todo jmarnell: beterrize
+    static transposeWithin(msg, min, numOctaves) {
+        while (msg.data < min) msg.data += 12
+        while (msg.data > min + numOctaves * 12) msg.data -= 12
+        return msg
+    }
+
     static setType(msg, type) {
         msg.type = type
         msg.status = msg.type + msg.channel
@@ -323,12 +350,12 @@ class Midi {
                 return rtmDevice
             }
         }
-        if (!!process.argv.find((a) => a == "--debug-midi")) {
+        if (!!process.argv.find((a) => a == "--j5-debug-midi")) {
             rtmDevice = new RtMidiDeviceProxy(out, opts)
         } else {
             rtmDevice = out ? new midi.Output() : new midi.Input()
         }
-        this.findAndOpenPort(rtmDevice, type, name, opts)
+        rtmDevice.portIndex = this.findAndOpenPort(rtmDevice, type, name, opts)
         if (!out) {
             rtmDevice.ignoreTypes(false, false, false)
         }
@@ -340,16 +367,18 @@ class Midi {
         const pattern =
             name.constructor === RegExp ? name : new RegExp(name, "ig")
         const numPorts = rtmDevice.getPortCount()
-        const portNames = []
+        let portNames = []
         for (let i = 0; i < numPorts; i++) {
             portNames.push(rtmDevice.getPortName(i))
         }
+        portNames = portNames.filter(n => !n.match(new RegExp(Midi.argv('j5-ignore-device', '___j5!'), "ig")))
         const filter = n => (!opts.exclude && n.match(pattern)) || (opts.exclude && !n.match(pattern))
         let portIndex = portNames.findIndex(n => filter(n))
         if (portIndex >= 0 && opts.second) portIndex = portNames.findIndex((n, i) => i > portIndex && filter(n))
         if (portIndex < 0 || opts.forceNewVirtual) {
             if (opts.virtual) {
                 portIndex = portNames.length
+                name = Midi.argv('j5-prepend-virtual') ? 'VIRTUAL ' + name : name
                 portNames.push(name)
                 rtmDevice.openVirtualPort(name)
                 Midi[`virtual${type}puts`][name] = { rtmDevice: rtmDevice }
@@ -359,13 +388,14 @@ class Midi {
                     `Could not find Midi (${type}) for: "${name}" of ${portNames}`
                 )
                 rtmDevice.closePort()
-                return null
+                return -1
             }
         } else {
             rtmDevice.openPort(portIndex)
         }
         rtmDevice.name = portNames[portIndex]
         console.log(`Opened Midi ${type} port: ${rtmDevice.name}        (All: ${portNames})`)
+        return portIndex
     }
 
     static cleanMessage(msg) {
@@ -419,7 +449,7 @@ class Midi {
     }
 
     static nanos(hrtimeDelta) {
-        return hrtimeDelta[0] * 1e9 + hrtimeDelta[1]
+        return hrtimeDelta[0] * NANO_PER_SEC + hrtimeDelta[1]
     }
 
     // todo: uhhhhhhhhh, make this better
@@ -428,12 +458,19 @@ class Midi {
     }
 }
 
+Midi.NANO_PER_SEC = NANO_PER_SEC
+Midi.SEC_PER_NANO = SEC_PER_NANO
+
 Midi.virtualInputs = {}
 Midi.virtualOutputs = {}
 
 Midi.bootTimeMs = Midi.nowMs()
 Midi.bootTime = process.hrtime()
 Midi.globalTotalTime = 0
+console.error(`Booted j5 MIDI, hrtime / nanos reference point: [`, Midi.bootTime[0],
+    Midi.bootTime[1], `], "now" secs from then: ${Midi.secsStr(null, 9)
+    }, reference point system clock millis: ${Midi.bootTimeMs
+    }`, new Date(Midi.bootTimeMs))
 
 Midi.Types = Object.freeze({
     NOTE_ON: 0b10010000,
@@ -467,9 +504,21 @@ Midi.TypeNames = Object.freeze({
 
 Midi.Drum = Object.freeze({
     KICK: 36,
+    CLICK: 37,
     SNARE: 38,
+    CLAP: 39,
     HIHAT: 42,
+    TOM_HIGH: 43,
     HIHAT_OPEN: 46,
+    CRASH: 55, // 49, ?
+    RIDE: 51,
+    CHINA: 52,
+    RIDE_BELL: 53,
+    TAMBOURINE: 54,
+    SPLASH: 50, //55, ?
+    COWBELL: 56,
+    I_GOTTA_FEEVAH: 56,
+    CRASH_2: 57,
 })
 
-module.exports = Midi
+module.exports = Object.freeze(Midi)
