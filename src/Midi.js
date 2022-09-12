@@ -12,6 +12,8 @@ NOTES_SHARPS.forEach(
 const NANO_PER_SEC = 1e9
 const SEC_PER_NANO = 1.0 / NANO_PER_SEC
 
+const reverse = obj => Object.freeze(Object.fromEntries(Object.entries(obj).map(e => e.reverse())))
+
 class Midi {
 
     static argv(name, defaultValue) {
@@ -127,6 +129,10 @@ class Midi {
     static isLikeSnareHit(msg) {
         return Midi.isNoteOn(msg)
             && (msg.data === Midi.Drum.SNARE || msg.data === Midi.Drum.CLICK || msg.data === Midi.Drum.CLAP)
+    }
+
+    static isPerformanceMessage(msg) {
+        return Midi.PerformTypesRev[msg.type] || (Midi.isCC(msg) && Midi.CC_PERFORM_REV[msg.data])
     }
 
     static isNoteOff(msg, note) {
@@ -472,14 +478,17 @@ console.error(`Booted j5 MIDI, hrtime / nanos reference point: [`, Midi.bootTime
     }, reference point system clock millis: ${Midi.bootTimeMs
     }`, new Date(Midi.bootTimeMs))
 
-Midi.Types = Object.freeze({
-    NOTE_ON: 0b10010000,
-    NOTE_OFF: 0b10000000,
-    CC: 0b10110000,
-    PROGRAM: 0b11000000,
-    KEY_AFTER: 0b10100000,
-    CHANNEL_AFTER: 0b11010000,
-    PITCH_BEND: 0b11100000,
+Midi.PerformTypes = Object.freeze({
+    NOTE_ON: 0b10010000, // 144 , 0x90
+    NOTE_OFF: 0b10000000, // 128 , 0x80
+    KEY_AFTER: 0b10100000, // 160 , 0xA0
+    CHANNEL_AFTER: 0b11010000, // 208 , OxD0
+    PITCH_BEND: 0b11100000, // 224 , OxE0
+})
+Midi.PerformTypesRev = reverse(Midi.PerformTypes)
+
+Midi.Types = Object.freeze(Object.assign({}, Midi.PerformTypes, {
+    CC: 0b10110000, // 176 , 0xB0
     SYSEX_START: 0xF0,
     SYSEX_END: 0xF7,
 
@@ -490,7 +499,7 @@ Midi.Types = Object.freeze({
     NOTES_SHARPS: NOTES_SHARPS,
     LETTERS_TO_NOTES: LETTERS_TO_NOTES,
     LETTERS_TO_NOTES_SHARPS: LETTERS_TO_NOTES_SHARPS,
-})
+}))
 
 Midi.TypeNames = Object.freeze({
     [Midi.Types.NOTE_ON]: "noteon",
@@ -520,5 +529,32 @@ Midi.Drum = Object.freeze({
     I_GOTTA_FEEVAH: 56,
     CRASH_2: 57,
 })
+
+Midi.CC_PERFORM = Object.freeze({
+    MOD_WHEEL: 1,
+    BREATH_CONTROLLER: 2,
+    FOOT_CONTROLLER: 4,
+    PORTAMENTO_TIME: 5,
+    EXPRESSION_CONTROLLER: 11,
+    EFFECT_CONTROL_1: 12,
+    EFFECT_CONTROL_2: 13,
+    LSB_MOD_WHEEL: 33,
+    LSB_BREATH_CONTROLLER: 34,
+    LSB_FOOT_CONTROLLER: 36,
+    LSB_PORTAMENTO_TIME: 37,
+    LSB_EXPRESSION_CONTROLLER: 43,
+    LSB_EFFECT_CONTROL_1: 44,
+    LSB_EFFECT_CONTROL_2: 45,
+    SUSTAIN_PEDAL: 64,
+    PORTAMENTO_BYPASS: 65,
+    SOSTENUTO_BYPASS: 66,
+    SOFT_PEDAL_BYPASS: 67,
+    LEGATO_FOOT_BYPASS: 68,
+})
+Midi.CC_PERFORM_REV = reverse(Midi.CC_PERFORM)
+
+Midi.CC = Object.freeze(Object.assign({}, Midi.CC_PERFORM, {
+    VOLUME: 7,
+}))
 
 module.exports = Object.freeze(Midi)
