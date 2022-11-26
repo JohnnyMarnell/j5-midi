@@ -167,6 +167,15 @@ class Midi {
         return rtmData[0] === Midi.Types.SYSEX_START && rtmData[rtmData.length - 1] === Midi.Types.SYSEX_END
     }
 
+    static sysExToString(rtmData) {
+        let start = 0, len = rtmData.length
+        if (rtmData[0] == Midi.Types.SYSEX_START) {
+            start++
+            len--
+        }
+        return String.fromCharCode(...rtmData.slice(start, len))
+    }
+
     // match a noteOn or a cc press (high)
     static on(target, msg) {
         return (
@@ -458,6 +467,11 @@ class Midi {
         return hrtimeDelta[0] * NANO_PER_SEC + hrtimeDelta[1]
     }
 
+    static clamp(msg, min, max) {
+        msg.value = min + (Math.floor(msg.value / Midi.Types.MAX * (max - min + 1)));
+        return msg
+    }
+
     // todo: uhhhhhhhhh, make this better
     static clone(object) {
         return JSON.parse(JSON.stringify(object))
@@ -499,6 +513,9 @@ Midi.Types = Object.freeze(Object.assign({}, Midi.PerformTypes, {
     NOTES_SHARPS: NOTES_SHARPS,
     LETTERS_TO_NOTES: LETTERS_TO_NOTES,
     LETTERS_TO_NOTES_SHARPS: LETTERS_TO_NOTES_SHARPS,
+    NUM_CHANNELS: 16,
+    MAX: 128,
+    MIN: 0
 }))
 
 Midi.TypeNames = Object.freeze({

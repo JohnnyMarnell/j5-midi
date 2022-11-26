@@ -5,10 +5,14 @@ class MidiOut {
         this.opts = opts
         this.rtmOut = Midi.newRtmDevice(this.opts.pattern, true, this.opts)
         this.name = this.rtmOut.name
+        this.noteOns = (new Array(Midi.Types.NUM_CHANNELS))
+            .fill().map(c => (new Array(Midi.MAX)).fill().map(v => null))
     }
 
     send(msg) {
         if (msg) {
+            if (Midi.isNoteOn(msg)) this.noteOns[msg.channel][msg.data] = msg
+            else if (Midi.isNoteOff(msg)) this.noteOns[msg.channel][msg.data] = null
             let rtmArray = Midi.toRtmArray(msg)
             if (this.opts.verbose) {
                 console.log(
@@ -74,6 +78,21 @@ class MidiOut {
         } else {
             this.sendNoteOff(channel, note)
         }
+    }
+
+    forEachNoteOn(callback) {
+        this.noteOns.flatMap(list => list).filter(msg => msg).forEach(callback)
+    }
+
+    silence() {
+        this.forEachNoteOn(msg => this.send(Midi.note(msg.data, msg.channel, true)))
+    }
+
+    transformAndReplay(transform) {
+        this.forEachNoteOn(msg => {
+            this.send(Midi.note(msg.data, msg.channel, true))
+            this.send(transform(msg))
+        })
     }
 
     close() {

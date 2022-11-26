@@ -59,12 +59,30 @@ class MidiIn {
         }
     }
 
-    on(events, handler, exclusive) {
-        if (this.require) {
+    on(events, handler, opts = {}) {
+        if (opts.when) {
+            const condition = opts.when
+            const originalHandler = handler
+            if (opts.otherwise) {
+                handler = (...args) => {
+                    if (condition(...args)) {
+                        originalHandler(...args)
+                    } else {
+                        opts.otherwise(...args)
+                    }
+                }
+            } else {
+                handler = (...args) => {
+                    if (condition(...args)) {
+                        originalHandler(...args)
+                    }
+                }
+            }
+        }
+        else if (this.require) {
             const condition = this.require
             const originalHandler = handler
             handler = (...args) => {
-                // console.log('Checked condition for', events, 'result:', condition(...args))
                 if (condition(...args)) {
                     originalHandler(...args)
                 }
@@ -72,7 +90,7 @@ class MidiIn {
         }
         // console.log('Is there a requirement for', events, '?', !!this.require)
         events.split(/,\s*|\s+/gi).forEach((event) => {
-            if (exclusive) {
+            if (opts.exclusive) {
                 this.exclusiveEvents[event] = true
             }
             this.events.on(event, handler)
@@ -135,6 +153,18 @@ class MidiIn {
         }
         this.fireEvents(msg, dt, data, this)
         this.events.emit("rtm", data, dt, this)
+    }
+
+    when(condition, callback) {
+        const oldRequire = this.require
+        this.require = condition
+        callback(this)
+        this.require = oldRequire
+    }
+
+    whenOtherwise(condition, whenCallback, otherwiseCallback) {
+        when(condition, whenCallback)
+        when(...args => !condition(...args), otherwiseCallback)
     }
 
     close() {
