@@ -11,8 +11,6 @@ class MidiOut {
 
     send(msg) {
         if (msg) {
-            if (Midi.isNoteOn(msg)) this.noteOns[msg.channel][msg.data] = msg
-            else if (Midi.isNoteOff(msg)) this.noteOns[msg.channel][msg.data] = null
             let rtmArray = Midi.toRtmArray(msg)
             if (this.opts.verbose) {
                 console.log(
@@ -24,6 +22,8 @@ class MidiOut {
                 )
             }
             this.rtmSend(rtmArray)
+            if (Midi.isNoteOn(msg)) this.noteOns[msg.channel][msg.data] = msg
+            else if (Midi.isNoteOff(msg)) this.noteOns[msg.channel][msg.data] = null
         }
     }
 
@@ -93,6 +93,17 @@ class MidiOut {
             this.send(Midi.note(msg.data, msg.channel, true))
             this.send(transform(msg))
         })
+    }
+
+    panic() {
+        this.silence()
+        for (let channel = 0; channel < Midi.Types.NUM_CHANNELS; channel++) {
+            this.out.send(Midi.cc(123, channel, 0))
+            this.out.send(Midi.cc(120, channel, 0))
+            for (let note = 0; note < Midi.Types.MAX; note++) {
+                this.out.send(Midi.note(note, channel, true))
+            }
+        }
     }
 
     close() {
