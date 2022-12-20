@@ -98,7 +98,7 @@ class MidiIn {
         return this
     }
 
-    onHeld(event, handler, secs) {
+    onHeld(event, handler, secs = 1) {
         let timer = null
         const time = secs * 1000
         const type = t => event.replace(/(on|off)/ig, '')

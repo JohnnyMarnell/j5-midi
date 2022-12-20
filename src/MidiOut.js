@@ -98,10 +98,10 @@ class MidiOut {
     panic() {
         this.silence()
         for (let channel = 0; channel < Midi.Types.NUM_CHANNELS; channel++) {
-            this.out.send(Midi.cc(123, channel, 0))
-            this.out.send(Midi.cc(120, channel, 0))
+            this.send(Midi.cc(123, channel, 0))
+            this.send(Midi.cc(120, channel, 0))
             for (let note = 0; note < Midi.Types.MAX; note++) {
-                this.out.send(Midi.note(note, channel, true))
+                this.send(Midi.note(note, channel, true))
             }
         }
     }
