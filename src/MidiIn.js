@@ -90,6 +90,9 @@ class MidiIn {
         }
         // console.log('Is there a requirement for', events, '?', !!this.require)
         events.split(/,\s*|\s+/gi).forEach((event) => {
+            if (event === "sysex" && typeof this.opts.emitSysEx === "undefined") {
+                this.opts.emitSysEx = true
+            }
             if (opts.exclusive) {
                 this.exclusiveEvents[event] = true
             }
