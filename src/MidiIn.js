@@ -92,7 +92,12 @@ class MidiIn {
         events.split(/,\s*|\s+/gi).forEach((event) => {
             if (event === "sysex" && typeof this.opts.emitSysEx === "undefined") {
                 this.opts.emitSysEx = true
+            } else if (event === "rtm" && typeof this.opts.emitRtmData === "undefined") {
+                this.opts.emitRtmData = true
+            } else if (event === "midiBeatClock" && typeof this.opts.emitMidiBeatClock === "undefined") {
+                this.opts.emitMidiBeatClock = true
             }
+
             if (opts.exclusive) {
                 this.exclusiveEvents[event] = true
             }
@@ -123,21 +128,26 @@ class MidiIn {
 
     initRtmIn() {
         this.rtmIn.on("message", (dt, data) => {
-            if (this.opts.emitRtmData) {
-                this.events.emit("rtm", data, dt, this)
-            }
+            try {
+                if (this.opts.emitRtmData) {
+                    this.events.emit("rtm", data, dt, this)
+                }
 
-            if (Midi.isSysEx(data)) {
-                if (this.opts.emitSysEx) {
-                    this.events.emit("sysex", data, dt, this)
+                if (Midi.isSysEx(data)) {
+                    if (this.opts.emitSysEx) {
+                        this.events.emit("sysex", data, dt, this)
+                    }
+                } else if (Midi.isMidiBeatClock(data)) {
+                    if (this.opts.emitMidiBeatClock) {
+                        this.events.emit("midiBeatClock", data, dt, this)
+                    }
+                } else {
+                    let msg = Midi.translateFromRtMessage(dt, data)
+                    this.handleMessage(msg, dt, data)
                 }
-            } else if (Midi.isMidiBeatClock(data)) {
-                if (this.opts.emitMidiBeatClock) {
-                    this.events.emit("midiBeatClock", data, dt, this)
-                }
-            } else {
-                let msg = Midi.translateFromRtMessage(dt, data)
-                this.handleMessage(msg, dt, data)
+            } catch (err) {
+                console.error('MIDI handler error', err)
+                throw err
             }
         })
     }
