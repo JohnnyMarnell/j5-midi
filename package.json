@@ -17,9 +17,6 @@
   ],
   "author": "Johnny Marnell <johnnymarnell@gmail.com> (https://www.linkedin.com/in/johnnymarnell)",
   "license": "ISC",
-  "dependencies": {
-    "@julusian/midi": "^3.0.1"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/JohnnyMarnell/j5-midi.git"
@@ -27,5 +24,8 @@
   "bugs": {
     "url": "https://github.com/JohnnyMarnell/j5-midi/issues"
   },
-  "homepage": "https://github.com/JohnnyMarnell/j5-midi#readme"
+  "homepage": "https://github.com/JohnnyMarnell/j5-midi#readme",
+  "dependencies": {
+    "midi": "^2.0.0"
+  }
 }
