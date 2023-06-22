@@ -1,4 +1,4 @@
-const midi = require("@julusian/midi")
+const midi = require("midi")
 
 const DEBUG_CALLS = !!process.argv.find((a) => a == "--debug-midi-calls")
 
