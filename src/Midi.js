@@ -1,4 +1,4 @@
-const midi = require("@julusian/midi")
+const midi = require("midi")
 const RtMidiDeviceProxy = require("./RtMidiDeviceProxy")
 
 const NOTES = "C Db D Eb E F Gb G Ab A Bb B".split(" ")
