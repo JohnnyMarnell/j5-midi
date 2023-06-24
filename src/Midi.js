@@ -503,6 +503,7 @@ Midi.PerformTypesRev = reverse(Midi.PerformTypes)
 
 Midi.Types = Object.freeze(Object.assign({}, Midi.PerformTypes, {
     CC: 0b10110000, // 176 , 0xB0
+    PROGRAM: 0b11000000, // 192 , 0xC0
     SYSEX_START: 0xF0,
     SYSEX_END: 0xF7,
 
